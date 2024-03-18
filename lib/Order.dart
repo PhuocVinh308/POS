@@ -28,7 +28,9 @@ class _OrderPageState extends State<OrderPage> {
   void initState() {
     super.initState();
     loadTemporaryOrderFromLocalStorage();
-    fetchProducts();
+    fetchProducts().then((value) {
+      products.forEach((element) {print(element);});
+    });
   }
 
   double calculateTotalAmount() {
@@ -63,8 +65,9 @@ class _OrderPageState extends State<OrderPage> {
 
     if (response.statusCode == 200) {
       setState(() {
-        products = json.decode(response.body);
+        products = jsonDecode(utf8.decode(response.bodyBytes));
       });
+
     } else {
       throw Exception('Failed to load products');
     }
@@ -115,6 +118,7 @@ class _OrderPageState extends State<OrderPage> {
 
     @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Menu'),
@@ -150,6 +154,7 @@ class _OrderPageState extends State<OrderPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+
                         Text(
                           products[index]['productName'],
                           style: GoogleFonts.getFont('Lato'),
