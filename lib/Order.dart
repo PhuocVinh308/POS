@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import './TableService.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'main.dart';
 
 class OrderPage extends StatefulWidget {
   final int tableId;
@@ -17,6 +18,7 @@ class OrderPage extends StatefulWidget {
 class _OrderPageState extends State<OrderPage> {
   List<dynamic> products = [];
   Map<int, int> orderedItems = {};
+  TextEditingController _phoneNumberController = TextEditingController();
 
   @override
   void dispose() {
@@ -28,9 +30,7 @@ class _OrderPageState extends State<OrderPage> {
   void initState() {
     super.initState();
     loadTemporaryOrderFromLocalStorage();
-    fetchProducts().then((value) {
-      products.forEach((element) {print(element);});
-    });
+    fetchProducts();
   }
 
   double calculateTotalAmount() {
@@ -43,10 +43,12 @@ class _OrderPageState extends State<OrderPage> {
     }
     return total;
   }
+
   Future<void> saveTemporaryOrderToLocalStorage() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('temporary_order_${widget.tableId}', orderedItems.entries.map((entry) => '${entry.key}:${entry.value}').toList());
   }
+
   Future<void> loadTemporaryOrderFromLocalStorage() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? temporaryOrder = prefs.getStringList('temporary_order_${widget.tableId}');
@@ -83,9 +85,6 @@ class _OrderPageState extends State<OrderPage> {
     });
   }
 
-
-
-
   void removeProduct(int productId) {
     setState(() {
       orderedItems.remove(productId);
@@ -110,15 +109,58 @@ class _OrderPageState extends State<OrderPage> {
       }
     });
   }
+
   Future<void> clearOrderAndSetTableStatus() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('order_${widget.tableId}');
     await TableService.updateTableStatus(widget.tableId, false);
   }
 
-    @override
-  Widget build(BuildContext context) {
+  Future<void> handlePayment(String phoneNumber) async {
+    final url = Uri.parse('http://localhost:8080/api/orders');
+    DateTime now = DateTime.now();
+    double total = calculateTotalAmount();
 
+    Map<String, dynamic> payload = {
+      'totalAmount': total,
+      'ban': {'id': widget.tableId},
+      'orderDate': now.toIso8601String(),
+      'phoneNumber': phoneNumber,
+    };
+
+    String jsonString = json.encode(payload);
+
+    final orderResponse = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonString,
+    );
+
+    final orderId = json.decode(orderResponse.body)['id'];
+
+    final orderItemsUrl = Uri.parse('http://localhost:8080/api/order-items');
+    orderedItems.forEach((productId, quantity) async {
+      Map<String, dynamic> orderItemsPayload = {
+        'order': {'id': orderId},
+        'product': {'id': productId},
+        'quantity': quantity,
+      };
+      String jsonString = json.encode(orderItemsPayload);
+      final orderItemResponse = await http.post(
+        orderItemsUrl,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonString,
+      );
+    });
+
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Menu'),
@@ -154,10 +196,9 @@ class _OrderPageState extends State<OrderPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-
                         Text(
-                          products[index]['productName'],
-                          style: GoogleFonts.getFont('Lato'),
+                          '${products[index]['price'].round()}K',
+                          style: TextStyle(color: Colors.black87, fontSize: 25, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                         Row(
@@ -202,7 +243,7 @@ class _OrderPageState extends State<OrderPage> {
                               },
                               child: Text(
                                 '$quantity',
-                                style: TextStyle(color: Colors.blue),
+                                style: TextStyle(color: Colors.blue, fontSize: 15, fontWeight: FontWeight.bold),
                               ),
                             ),
                             IconButton(
@@ -210,7 +251,6 @@ class _OrderPageState extends State<OrderPage> {
                               onPressed: () {
                                 orderProduct(productId);
                                 updateTableStatus(widget.tableId, true);
-                                print(widget.tableId);
                               },
                             ),
                           ],
@@ -221,9 +261,9 @@ class _OrderPageState extends State<OrderPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: Text(
-                      '${products[index]['price'].round() }K',
-                      style: TextStyle(color: Colors.black87,fontSize: 15),
-                      textAlign: TextAlign.center ,
+                      products[index]['productName'],
+                      style: TextStyle(color: Colors.black87, fontSize: 25, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ],
@@ -260,7 +300,6 @@ class _OrderPageState extends State<OrderPage> {
                       ),
                     ),
                   ),
-
                   for (int productId in orderedItems.keys)
                     ListTile(
                       title: Text(products.firstWhere((element) => element['id'] == productId)['productName']),
@@ -289,8 +328,14 @@ class _OrderPageState extends State<OrderPage> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text('Chọn hình thức thanh toán'),
-                        content: Text('Tiền mặt'),
+                        title: Text('Nhập số điện thoại'),
+                        content: TextField(
+                          controller: _phoneNumberController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            hintText: 'Nhập số điện thoại',
+                          ),
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () {
@@ -300,13 +345,16 @@ class _OrderPageState extends State<OrderPage> {
                           ),
                           TextButton(
                             onPressed: () async {
+                              await handlePayment(_phoneNumberController.text);
                               await clearOrderAndSetTableStatus();
                               setState(() {
                                 orderedItems.clear();
                               });
-                              Navigator.of(context).pop();
+                              Navigator.popUntil(context, ModalRoute.withName('/'));
+
+
                             },
-                            child: Text('Thanh toán'),
+                            child: Text('Xác nhận'),
                           ),
                         ],
                       ),
@@ -319,9 +367,6 @@ class _OrderPageState extends State<OrderPage> {
           ),
         ),
       ),
-
-
     );
-
   }
 }

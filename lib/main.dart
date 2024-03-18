@@ -13,9 +13,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Table List',
-      home: TableListPage(),
+      routes: {
+        '/': (context) => TableListPage(),
+      },
     );
+
   }
 }
 
@@ -73,7 +75,6 @@ class _TableListPageState extends State<TableListPage> {
                     builder: (context) => OrderPage(tables[index]['id']),
                   ),
                 ).then((_) {
-                  // Gọi fetchTableList() sau khi quay lại từ OrderPage
                   fetchTableList();
                 });
               },
@@ -84,12 +85,12 @@ class _TableListPageState extends State<TableListPage> {
                   SizedBox(height: 8),
                   Text(
                     'Bàn ${tables[index]['id']}',
-                    style: TextStyle(fontSize: 18),
+                    style:  TextStyle(color: Colors.black87,fontSize: 30),
                   ), // Tên bàn
                   SizedBox(height: 4),
                   Text(
                     'Trạng thái: ${isEmpty ? "Trống" : "Có khách"}',
-                    style: TextStyle(fontSize: 14),
+                    style:  TextStyle(color: Colors.black87,fontSize: 25),
                   ), // Trạng thái bàn
                 ],
               ),
