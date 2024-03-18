@@ -89,6 +89,15 @@ class _OrderPageState extends State<OrderPage> {
     });
   }
 
+  void updateTableStatus(int tableId, bool status) async {
+    try {
+      await TableService.updateTableStatus(tableId, status);
+      print('Table status updated successfully');
+    } catch (e) {
+      print('Error updating table status: $e');
+    }
+  }
+
   void updateQuantity(int productId, int newQuantity) {
     setState(() {
       if (newQuantity > 0) {
@@ -101,7 +110,7 @@ class _OrderPageState extends State<OrderPage> {
   Future<void> clearOrderAndSetTableStatus() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('order_${widget.tableId}');
-    await TableService.updateTableStatus(widget.tableId, false); // Set trạng thái của bàn thành trống
+    await TableService.updateTableStatus(widget.tableId, false);
   }
 
     @override
@@ -125,6 +134,7 @@ class _OrderPageState extends State<OrderPage> {
             child: InkWell(
               onTap: () {
                 orderProduct(productId);
+                updateTableStatus(widget.tableId, true);
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -194,6 +204,8 @@ class _OrderPageState extends State<OrderPage> {
                               icon: Icon(Icons.add),
                               onPressed: () {
                                 orderProduct(productId);
+                                updateTableStatus(widget.tableId, true);
+                                print(widget.tableId);
                               },
                             ),
                           ],

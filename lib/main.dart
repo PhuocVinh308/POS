@@ -27,22 +27,11 @@ class TableListPage extends StatefulWidget {
 class _TableListPageState extends State<TableListPage> {
   List<dynamic> tables = [];
 
-
-
   @override
   void initState() {
     super.initState();
     fetchTableList();
   }
-  void updateTableStatus(int tableId, bool status) async {
-    try {
-      await TableService.updateTableStatus(tableId, status);
-      print('Table status updated successfully');
-    } catch (e) {
-      print('Error updating table status: $e');
-    }
-  }
-
 
   Future<void> fetchTableList() async {
     final response = await http.get(Uri.parse('http://localhost:8080/api/table'));
@@ -77,12 +66,16 @@ class _TableListPageState extends State<TableListPage> {
             color: cardColor,
             child: InkWell(
               onTap: () {
+                isEmpty = !isEmpty;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => OrderPage(tables[index]['id']),
                   ),
-                );
+                ).then((_) {
+                  // Gọi fetchTableList() sau khi quay lại từ OrderPage
+                  fetchTableList();
+                });
               },
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
